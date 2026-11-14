@@ -115,7 +115,7 @@ export function createApplicationService(repo) {
         repo.addHistory({
           applicationId: application.id,
           actorId: actor.id,
-          action: 'APPROVED',
+          action: 'APPROVE',
           fromStatus: application.status,
           toStatus: 'APPROVED'
         })
