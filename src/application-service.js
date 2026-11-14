@@ -83,8 +83,51 @@ export function createApplicationService(repo) {
     approve(actor, applicationId) {
       // TODO-03: 담당자·PENDING·정원 검사 → APPROVED + APPROVE 이력.
       // 직접 승인은 운영자가 선택합니다. FIFO는 승인 취소 때의 자동 승급에 적용합니다.
+      repo.db.exec('BEGIN IMMEDIATE');
 
-      throw new AppError(501, 'NOT_IMPLEMENTED', 'TODO-03 승인과 이력을 구현하세요.');
+      try {
+        const application = repo.application(applicationId);
+        if (!application) throw missing("신청");
+
+        const event = repo.event(application.eventId);
+        if(!event) throw missing("행사");
+
+        if(
+          actor.role !== 'MANAGER' || event.managerId !== actor.id
+        ) {
+          throw forbidden();
+        }
+
+        if(application.status !== 'PENDING') {
+          throw invalidState();
+        }
+
+        if(repo.approvedCount(event.id) >= event.capacity){
+          throw new AppError(
+            409,
+            'CAPACITY_FULL',
+            '행사 정원이 가득 찼습니다.'
+          );
+        }
+
+        const approved = repo.setStatus(applicationId, 'APPROVED');
+
+        repo.addHistory({
+          applicationId: application.id,
+          actorId: actor.id,
+          action: 'APPROVED',
+          fromStatus: application.status,
+          toStatus: 'APPROVED'
+        })
+
+        repo.db.exec('COMMIT');
+        
+        return approved;
+      } catch (error) {
+        repo.db.exec('ROLLBACK');
+        throw error;
+      }
+      //throw new AppError(501, 'NOT_IMPLEMENTED', 'TODO-03 승인과 이력을 구현하세요.');
     },
     revoke(actor, applicationId, reason) {
       // TODO-04: 담당자·APPROVED 검사 → REVOKED + REVOKE 이력.
