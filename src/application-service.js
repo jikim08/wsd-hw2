@@ -46,7 +46,39 @@ export function createApplicationService(repo) {
     cancel(actor, applicationId) {
       // TODO-02: 본인의 PENDING만 CANCELLED로 변경 + CANCEL 이력.
       // 학생의 대기 취소는 승인 자리를 비우지 않으므로 자동 승급하지 않습니다.
-      throw new AppError(501, 'NOT_IMPLEMENTED', 'TODO-02 대기 취소와 이력을 구현하세요.');
+      repo.db.exec('BEGIN IMMEDIATE');
+      try{
+        const application = repo.application(applicationId);
+        if (!application) throw missing('신청')
+        
+          if(
+            actor.role !== 'STUDENT' || application.userId !== actor.id
+          ) {
+            throw forbidden();
+          }
+
+          if (application.status !== 'PENDING'){
+            throw invalidState();
+          }
+
+          const cancelled = repo.setStatus(applicationId, 'CANCELLED');
+
+          repo.addHistory({
+            applicationId: application.id,
+            actorId: actor.id,
+            action: 'CANCEL',
+            fromStatus: application.status,
+            toStatus: 'CANCELLED'
+          });
+
+          repo.db.exec('COMMIT');
+          
+          return cancelled;
+      } catch (error){
+        repo.db.exec('ROLLBACK');
+        throw error;
+      }
+      //throw new AppError(501, 'NOT_IMPLEMENTED', 'TODO-02 대기 취소와 이력을 구현하세요.');
     },
     approve(actor, applicationId) {
       // TODO-03: 담당자·PENDING·정원 검사 → APPROVED + APPROVE 이력.
