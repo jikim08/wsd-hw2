@@ -19,7 +19,7 @@ export function createApplicationService(repo) {
         if (repo.existing(eventId, actor.id)) {
           throw new AppError(
             409,
-            'ALREADYU_APPLIED',
+            'ALREADY_APPLIED',
             "이미 신청한 행사입니다."
           );
         }
